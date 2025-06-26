@@ -66,7 +66,7 @@ class Pessoa {
     }
 
     public function setSexo($sexo) {
-        // $sexo = strtoupper($sexo);            está aqui para caso um humano burro alterar os valores F e M para minusculo
+        // $sexo = strtoupper($sexo);   está aqui para caso um humano burro alterar os valores F e M para minusculo
         $opcoes = ['M', 'F', 'OUTRO'];
         if (!in_array($sexo, $opcoes)) {
             throw new Exception("Sexo inválido. Use 'Maculino', 'Feminino' ou 'Outro'");
@@ -112,39 +112,43 @@ class Pessoa {
 
     public function atualizar($id) {
         $sql = "UPDATE {$this->table} SET nome = ?, cpf = ?, data_nascimento = ?, sexo = ?, telefone = ?, email = ? WHERE id_pessoa = ?";
-        $stmt = $this->conn->prepare($sql);
+        $comando = $this->conn->prepare($sql);
 
-        return $stmt->execute([
+//Aqui os ? funcionam como espaços reservados, mas: A ordem dos valores no array é essencial
+//Você não precisa fazer bindParam — só passar tudo no execute()
+
+        return $comando->execute([
             $this->nome,
             $this->cpf,
             $this->data_nascimento,
             $this->sexo,
             $this->telefone,
             $this->email,
-            $id
+            $id    //id esta aqui pq o parametro da func é o $id e em "WHERE id_pessoa" pede esse parametro
+                   //Não se pode usar $this->id pois assim ele vai puxar um valor existente e não o informado
         ]);
     }
 
     public function listar() {
         $sql = "SELECT * FROM {$this->table}";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute();
+        $comando = $this->conn->prepare($sql);
+        $comando->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $comando->fetchAll(PDO::FETCH_ASSOC);   //Busca todas as linhas da tabela. Retorna como array associativo.
     }
 
     public function buscarPorId($id) {
         $sql = "SELECT * FROM {$this->table} WHERE id_pessoa = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$id]);
+        $comando = $this->conn->prepare($sql);
+        $comando->execute([$id]);
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $comando->fetch(PDO::FETCH_ASSOC); //Busca uma pessoa pelo seu ID. Retorna um array associativo com os dados.
     }
 
     public function excluir($id) {
         $sql = "DELETE FROM {$this->table} WHERE id_pessoa = ?";
-        $stmt = $this->conn->prepare($sql);
-        return $stmt->execute([$id]);
+        $comando = $this->conn->prepare($sql);
+        return $comando->execute([$id]);     //Remove a pessoa do banco pelo ID.
     }
 }
 
