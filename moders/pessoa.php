@@ -150,6 +150,15 @@ class Pessoa {
         $comando = $this->conn->prepare($sql);
         return $comando->execute([$id]);     //Remove a pessoa do banco pelo ID.
     }
+
+
+    public function pessoaExiste($cpf) {
+        $sql = "SELECT id_pessoa FROM pessoa WHERE cpf = ?";
+        $comando = $this->conn->prepare($sql);
+        $comando->execute([$cpf]);
+        return $comando->fetch(PDO::FETCH_ASSOC); // se existir, retorna os dados
+    }
+
 }
 
 ?>

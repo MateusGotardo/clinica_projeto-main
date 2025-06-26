@@ -1,6 +1,6 @@
 <?php
 
-require_once 'pessoa.php'; // incluir a superclasse Pessoa
+require_once 'pessoa.php';
 
 class Medico extends Pessoa {
     private $crm, $especialidade;
@@ -19,7 +19,7 @@ class Medico extends Pessoa {
         return $this->especialidade;
     }
 
-    // SETTERS com validações
+    // SETTERS
 
     public function setCrm($crm) {
         if (!is_numeric($crm) || strlen((string)$crm) != 6) {
@@ -32,41 +32,53 @@ class Medico extends Pessoa {
         $this->especialidade = $especialidade; // pode ser vazio
     }
 
-    // Sobrescrever o método inserir para inserir em pessoa e medico
     public function inserir() {
-        try {
-            $this->conn->beginTransaction();
+    try {
+        $this->conn->beginTransaction(); //USADO COMO COMIT PARA AS DUAS TABELAS.
 
-            // 1. Inserir na tabela pessoa (usa método da superclasse)
+        // Verifica se já existe pessoa com esse CPF
+        $pessoaExistente = $this->pessoaExiste($this->getCpf());
+
+        if ($pessoaExistente) {
+            $idPessoa = $pessoaExistente['id_pessoa'];
+
+//"Se a variável $pessoaExistente existe, no caso achou alguem com aquele CPF
+//"Então, atribua à variável $idPessoa o valor do campo 'id_pessoa' que veio no resultado da consulta."
+
+        } else {
             $sqlPessoa = "INSERT INTO pessoa (nome, cpf, data_nascimento, sexo, telefone, email) 
                           VALUES (:nome, :cpf, :data_nascimento, :sexo, :telefone, :email)";
-            $stmtPessoa = $this->conn->prepare($sqlPessoa);
-            $stmtPessoa->bindParam(':nome', $this->getNome());
-            $stmtPessoa->bindParam(':cpf', $this->getCpf());
-            $stmtPessoa->bindParam(':data_nascimento', $this->getDataNascimento());
-            $stmtPessoa->bindParam(':sexo', $this->getSexo());
-            $stmtPessoa->bindParam(':telefone', $this->getTelefone());
-            $stmtPessoa->bindParam(':email', $this->getEmail());
-            $stmtPessoa->execute();
+            $comandoPessoa = $this->conn->prepare($sqlPessoa);
+            $comandoPessoa->bindParam(':nome', $this->getNome());
+            $comandoPessoa->bindParam(':cpf', $this->getCpf());
+            $comandoPessoa->bindParam(':data_nascimento', $this->getDataNascimento());
+            $comandoPessoa->bindParam(':sexo', $this->getSexo());
+            $comandoPessoa->bindParam(':telefone', $this->getTelefone());
+            $comandoPessoa->bindParam(':email', $this->getEmail());
+            $comandoPessoa->execute();
 
-            $idPessoa = $this->conn->lastInsertId();
-
-            // 2. Inserir na tabela medico
-            $sqlMedico = "INSERT INTO medico (id_medico, crm, especialidade) VALUES (:id, :crm, :especialidade)";
-            $stmtMedico = $this->conn->prepare($sqlMedico);
-            $stmtMedico->bindParam(':id', $idPessoa);
-            $stmtMedico->bindParam(':crm', $this->crm);
-            $stmtMedico->bindParam(':especialidade', $this->especialidade);
-            $stmtMedico->execute();
-
-            $this->conn->commit();
-            return true;
-
-        } catch (PDOException $e) {
-            $this->conn->rollBack();
-            throw new Exception("Erro ao inserir médico: " . $e->getMessage());
+            $idPessoa = $this->conn->lastInsertId(); //usa lastInsertId pois essa função nativa pega o ultimo id criado pelo banco
+            //e apenas assim consegue associar medico e pessoa.
         }
+
+        // Insere na tabela medico com idPessoa
+        $sqlMedico = "INSERT INTO medico (id_medico, crm, especialidade) VALUES (:id, :crm, :especialidade)";
+        $comandoMedico = $this->conn->prepare($sqlMedico);
+        $comandoMedico->bindParam(':id', $idPessoa);
+        $comandoMedico->bindParam(':crm', $this->crm);
+        $comandoMedico->bindParam(':especialidade', $this->especialidade);
+        $comandoMedico->execute();
+
+        $this->conn->commit();
+        return;
+
+    } 
+        catch (PDOException $e) {
+        $this->conn->rollBack();
+        throw new Exception("Erro ao inserir médico: " . $e->getMessage());
     }
+}
+
 
     // Atualizar médico: deve atualizar pessoa e medico
 
@@ -76,8 +88,8 @@ class Medico extends Pessoa {
 
             // Atualiza pessoa
             $sqlPessoa = "UPDATE pessoa SET nome = ?, cpf = ?, data_nascimento = ?, sexo = ?, telefone = ?, email = ? WHERE id_pessoa = ?";
-            $stmtPessoa = $this->conn->prepare($sqlPessoa);
-            $stmtPessoa->execute([
+            $comandoPessoa = $this->conn->prepare($sqlPessoa);
+            $comandoPessoa->execute([
                 $this->getNome(),
                 $this->getCpf(),
                 $this->getDataNascimento(),
@@ -97,7 +109,7 @@ class Medico extends Pessoa {
             ]);
 
             $this->conn->commit();
-            return true;
+            return;
 
         } catch (PDOException $e) {
             $this->conn->rollBack();
@@ -112,10 +124,10 @@ class Medico extends Pessoa {
                 FROM pessoa p 
                 INNER JOIN medico m ON p.id_pessoa = m.id_medico";
 
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute();
+        $comando = $this->conn->prepare($sql);
+        $comando->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $comando->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // Buscar médico pelo ID com dados completos
@@ -126,10 +138,10 @@ class Medico extends Pessoa {
                 INNER JOIN medico m ON p.id_pessoa = m.id_medico
                 WHERE p.id_pessoa = ?";
 
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$id]);
+        $comando = $this->conn->prepare($sql);
+        $comando->execute([$id]);
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $comando->fetch(PDO::FETCH_ASSOC);
     }
 
     // Excluir médico (apaga de medico e pessoa)
@@ -139,12 +151,12 @@ class Medico extends Pessoa {
             $this->conn->beginTransaction();
 
             $sqlMedico = "DELETE FROM medico WHERE id_medico = ?";
-            $stmtMedico = $this->conn->prepare($sqlMedico);
-            $stmtMedico->execute([$id]);
+            $comandoMedico = $this->conn->prepare($sqlMedico);
+            $comandoMedico->execute([$id]);
 
             $sqlPessoa = "DELETE FROM pessoa WHERE id_pessoa = ?";
-            $stmtPessoa = $this->conn->prepare($sqlPessoa);
-            $stmtPessoa->execute([$id]);
+            $comandoPessoa = $this->conn->prepare($sqlPessoa);
+            $comandoPessoa->execute([$id]);
 
             $this->conn->commit();
             return true;
